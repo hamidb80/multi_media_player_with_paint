@@ -1,8 +1,3 @@
-# https://github.com/oaubert/python-vlc/blob/master/examples/gtkvlc.py
-# https://stackoverflow.com/questions/56045346/python-vlc-will-not-embed-gtk-widget-into-window-but-open-a-new-window-instead
-
-# https://stackoverflow.com/questions/38143037/cairo-gtk-draw-a-line-with-transparency-like-a-highlighter-pen
-
 # --- imports
 
 from gettext import gettext as _
@@ -119,7 +114,7 @@ class VLCWidget(Gtk.DrawingArea):
     __gtype_name__ = 'VLCWidget'
     player: None
 
-    def __init__(self, *p):
+    def __init__(self, width, height):
         Gtk.DrawingArea.__init__(self)
         self.player = instance.media_player_new()
 
@@ -143,7 +138,7 @@ class VLCWidget(Gtk.DrawingArea):
             return True
 
         self.connect("realize", handle_embed)
-        self.set_size_request(320, 200)
+        self.set_size_request(width, height)
 
 
 class ControlledVlcWidget(Gtk.VBox):
@@ -151,9 +146,9 @@ class ControlledVlcWidget(Gtk.VBox):
     vlc_widget: VLCWidget
     player: None
 
-    def __init__(self, *p):
+    def __init__(self, width, height):
         super(ControlledVlcWidget, self).__init__()
-        self.vlc_widget = VLCWidget(*p)
+        self.vlc_widget = VLCWidget(width, height)
         self.player = self.vlc_widget.player
         self.add(self.vlc_widget)
         self.pack_start(self.get_player_control_toolbar(), False, False, 0)
@@ -197,10 +192,11 @@ def main(filenames):
 
     # Create VLC widgets
     for fname in filenames:
-        v = ControlledVlcWidget()
+        v = ControlledVlcWidget(400, 400)
         v.player.set_media(instance.media_new(fname))
         videos.add(v)
 
+    window.set_title("multi video player + paint")
     window.show_all()
     window.connect("destroy", Gtk.main_quit)
     Gtk.main()
