@@ -29,6 +29,82 @@ else:
 
 # --- def
 
+# https://stackoverflow.com/questions/38143037/cairo-gtk-draw-a-line-with-transparency-like-a-highlighter-pen
+
+from random import random
+from gi.repository import Gtk, Gdk
+import cairo
+
+
+# --- utils
+
+def random_color():
+    return (random(), random(), random())
+
+
+class Brush(object):
+    def __init__(self, width, rgba_color):
+        self.width = width
+        self.rgba_color = rgba_color
+        self.stroke = []
+
+    def add_point(self, point):
+        self.stroke.append(point)
+
+# --- ui
+
+
+class Canvas(object):
+    def __init__(self):
+        self.draw_area = self.init_draw_area()
+        self.brushes = []
+
+    def draw(self, widget, cr):
+        cr.set_source_rgba(1, 1, 1, 1)
+        cr.paint()
+
+        for brush in self.brushes:
+            cr.new_path()
+            cr.set_source_rgba(*brush.rgba_color)
+            cr.set_line_width(brush.width)
+            cr.set_line_cap(1)
+            cr.set_line_join(cairo.LINE_JOIN_ROUND)
+            for x, y in brush.stroke:
+                cr.line_to(x, y)
+            cr.stroke()
+
+    def init_draw_area(self):
+        draw_area = Gtk.DrawingArea()
+        draw_area.connect('draw', self.draw)
+        draw_area.connect('motion-notify-event', self.mouse_move)
+        draw_area.connect('button-press-event', self.mouse_press)
+        draw_area.connect('button-release-event', self.mouse_release)
+        draw_area.set_events(draw_area.get_events() |
+                             Gdk.EventMask.BUTTON_PRESS_MASK |
+                             Gdk.EventMask.POINTER_MOTION_MASK |
+                             Gdk.EventMask.BUTTON_RELEASE_MASK)
+        return draw_area
+
+    def mouse_move(self, widget, event):
+        if event.state & Gdk.EventMask.BUTTON_PRESS_MASK:
+            curr_brush = self.brushes[-1]
+            curr_brush.add_point((event.x, event.y))
+            widget.queue_draw()
+
+    def mouse_press(self, widget, event):
+        if event.button == Gdk.BUTTON_PRIMARY:
+            brush = Brush(12, random_color())
+            brush.add_point((event.x, event.y))
+            self.brushes.append(brush)
+            widget.queue_draw()
+
+        elif event.button == Gdk.BUTTON_SECONDARY:
+            self.brushes = []
+
+    def mouse_release(self, widget, event):
+        widget.queue_draw()
+
+# --- go
 
 def get_window_pointer(window):
     """ Use the window.__gpointer__ PyCapsule to get the C void* pointer to the window
@@ -103,18 +179,21 @@ class ControlledVlcWidget(Gtk.VBox):
         return tb
 
 
-class Canvas(Gtk.DrawingArea):
-    ...
-
 
 def main(filenames):
     # Build main window
     window = Gtk.Window()
-    mainbox = Gtk.VBox()
+    wrapper = Gtk.VBox()
     videos = Gtk.HBox()
+    canvas = Canvas()
 
-    mainbox.add(videos)
-    window.add(mainbox)
+    canvas.draw_area.set_size_request(400, 400)
+
+    wrapper.add(videos)
+    wrapper.pack_start(canvas.draw_area, True, True, 0)
+    window.add(wrapper)
+
+    
 
     # Create VLC widgets
     for fname in filenames:
@@ -128,9 +207,12 @@ def main(filenames):
 
 # --- go -------------------------------------
 
+# DrawingApp(400, 400)
+# Gtk.main()
+
 
 if __name__ == '__main__':
-    if not sys.argv[1:]:
+    if len(sys.argv) < 2:
         quit('You must provide at least 1 movie filename')
 
     else:
