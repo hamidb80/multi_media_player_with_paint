@@ -1,5 +1,8 @@
 # --- imports
 
+import cairo
+from gi.repository import Gtk, Gdk
+from random import random
 from gettext import gettext as _
 import vlc
 import ctypes
@@ -22,16 +25,8 @@ if 'linux' in sys.platform:
 else:
     instance = vlc.Instance()
 
-# --- def
-
-# https://stackoverflow.com/questions/38143037/cairo-gtk-draw-a-line-with-transparency-like-a-highlighter-pen
-
-from random import random
-from gi.repository import Gtk, Gdk
-import cairo
-
-
 # --- utils
+
 
 def random_color():
     return (random(), random(), random())
@@ -45,6 +40,16 @@ class Brush(object):
 
     def add_point(self, point):
         self.stroke.append(point)
+
+
+def get_window_pointer(window):
+    """ Use the window.__gpointer__ PyCapsule to get the C void* pointer to the window
+    """
+    # get the c gpointer of the gdk window
+    ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
+    ctypes.pythonapi.PyCapsule_GetPointer.argtypes = [ctypes.py_object]
+    return ctypes.pythonapi.PyCapsule_GetPointer(window.__gpointer__, None)
+
 
 # --- ui
 
@@ -98,16 +103,6 @@ class Canvas(object):
 
     def mouse_release(self, widget, event):
         widget.queue_draw()
-
-# --- go
-
-def get_window_pointer(window):
-    """ Use the window.__gpointer__ PyCapsule to get the C void* pointer to the window
-    """
-    # get the c gpointer of the gdk window
-    ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
-    ctypes.pythonapi.PyCapsule_GetPointer.argtypes = [ctypes.py_object]
-    return ctypes.pythonapi.PyCapsule_GetPointer(window.__gpointer__, None)
 
 
 class VLCWidget(Gtk.DrawingArea):
@@ -174,6 +169,7 @@ class ControlledVlcWidget(Gtk.VBox):
         return tb
 
 
+# --- go -------------------------------------
 
 def main(filenames):
     # Build main window
@@ -188,8 +184,6 @@ def main(filenames):
     wrapper.pack_start(canvas.draw_area, True, True, 0)
     window.add(wrapper)
 
-    
-
     # Create VLC widgets
     for fname in filenames:
         v = ControlledVlcWidget(400, 400)
@@ -200,11 +194,6 @@ def main(filenames):
     window.show_all()
     window.connect("destroy", Gtk.main_quit)
     Gtk.main()
-
-# --- go -------------------------------------
-
-# DrawingApp(400, 400)
-# Gtk.main()
 
 
 if __name__ == '__main__':
