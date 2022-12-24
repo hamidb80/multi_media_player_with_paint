@@ -1,7 +1,7 @@
 # --- imports
 
 import cairo
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GLib
 from random import random
 from gettext import gettext as _
 import vlc
@@ -140,14 +140,23 @@ class ControlledVlcWidget(Gtk.VBox):
     __gtype_name__ = 'ControlledVlcWidget'
     vlc_widget: VLCWidget
     player: None
+    bar: None
 
     def __init__(self, width, height):
         super(ControlledVlcWidget, self).__init__()
         self.vlc_widget = VLCWidget(width, height)
         self.player = self.vlc_widget.player
         self.add(self.vlc_widget)
+
+        self.bar = Gtk.ProgressBar()
+
+        self.add(self.bar)
         self.pack_start(self.get_player_control_toolbar(), False, False, 0)
         self.show_all()
+
+    def update_timer(self):
+        (c, t) = (self.player.get_time(), self.player.get_media().get_duration())
+        self.bar.set_fraction(c/t)
 
     def set_media(self, path):
         self.vlc_widget.player.set_media(instance.media_new(path))
@@ -171,29 +180,47 @@ class ControlledVlcWidget(Gtk.VBox):
 
 # --- go -------------------------------------
 
-def main(filenames):
+class Main:
+    cvlcws: list
+
+    def __init__(self, media_paths):
+        window = Gtk.Window()
+        wrapper = Gtk.VBox()
+        videos = Gtk.HBox()
+        canvas = Canvas()
+
+        canvas.draw_area.set_size_request(400, 400)
+
+        wrapper.add(videos)
+        wrapper.pack_start(canvas.draw_area, True, True, 0)
+        window.add(wrapper)
+
+        # Create VLC widgets
+        self.cvlcws = []
+        for fname in media_paths:
+            v = ControlledVlcWidget(400, 400)
+            v.player.set_media(instance.media_new(fname))
+            videos.add(v)
+            self.cvlcws.append(v)
+
+        self.timeout_id = GLib.timeout_add(
+            100, lambda a: self.on_timeout(), None)
+
+        window.set_title("multi video player + paint")
+        window.show_all()
+        window.connect("destroy", Gtk.main_quit)
+        Gtk.main()
+
+    def on_timeout(self):
+        for v in self.cvlcws:
+            v.update_timer()
+
+        return True
+
+
+def main(media_paths):
     # Build main window
-    window = Gtk.Window()
-    wrapper = Gtk.VBox()
-    videos = Gtk.HBox()
-    canvas = Canvas()
-
-    canvas.draw_area.set_size_request(400, 400)
-
-    wrapper.add(videos)
-    wrapper.pack_start(canvas.draw_area, True, True, 0)
-    window.add(wrapper)
-
-    # Create VLC widgets
-    for fname in filenames:
-        v = ControlledVlcWidget(400, 400)
-        v.player.set_media(instance.media_new(fname))
-        videos.add(v)
-
-    window.set_title("multi video player + paint")
-    window.show_all()
-    window.connect("destroy", Gtk.main_quit)
-    Gtk.main()
+    Main(media_paths)
 
 
 if __name__ == '__main__':
